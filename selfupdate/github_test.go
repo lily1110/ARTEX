@@ -63,7 +63,7 @@ func TestPrivateReleaseMetadataChecksumsAndDownload(t *testing.T) {
 			return nil, nil
 		}
 	})
-	rel, err := FetchLatest(t.Context(), client)
+	rel, err := fetchLatest(t.Context(), client)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,10 +142,28 @@ func TestReleaseAuthenticationErrors(t *testing.T) {
 	for status, message := range map[int]string{401: GitHubTokenEnv, 403: "Contents", 404: Repo, 429: "限流"} {
 		t.Run(fmt.Sprint(status), func(t *testing.T) {
 			client := &http.Client{Transport: updateTransportFunc(func(req *http.Request) (*http.Response, error) { return updateResponse(req, status, "{}"), nil })}
-			_, err := FetchLatest(t.Context(), client)
+			_, err := fetchLatest(t.Context(), client)
 			if err == nil || !strings.Contains(err.Error(), message) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+// 在线更新在编译期关闭：公开入口必须在发起任何请求之前返回 ErrDisabled。
+func TestOnlineUpdateDisabledMakesNoRequest(t *testing.T) {
+	if Enabled {
+		t.Skip("online update enabled in this build")
+	}
+	client := &http.Client{Transport: updateTransportFunc(func(req *http.Request) (*http.Response, error) {
+		t.Fatalf("disabled update made a request: %s", req.URL)
+		return nil, nil
+	})}
+	if _, err := FetchLatest(t.Context(), client); err != ErrDisabled {
+		t.Fatalf("FetchLatest err = %v, want ErrDisabled", err)
+	}
+	rel := &Release{TagName: "v9.9.9", Assets: []Asset{{Name: "SHA256SUMS", URL: "https://github.com/x"}}}
+	if err := Stage(t.Context(), client, rel, "v0.0.1", nil); err != ErrDisabled {
+		t.Fatalf("Stage err = %v, want ErrDisabled", err)
 	}
 }

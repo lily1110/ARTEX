@@ -18,13 +18,8 @@ ensure_docker(){
   warn "未检测到 docker / docker compose"
   case "$(uname -s)" in
     Linux)
-      if [ "$(ask '自动安装 Docker? (y/n)' y)" = y ]; then
-        curl -fsSL https://get.docker.com | sh
-        sudo usermod -aG docker "$USER" || true
-        ok "Docker 安装完成（用户组变更需重新登录后免 sudo）"
-      else
-        die "请自行安装 docker 后重试"
-      fi ;;
+      # 不再 `curl get.docker.com | sh`：把远程脚本直接交给 shell 执行无法审阅。
+      die "请按官方文档用发行版的包管理器安装 Docker 与 compose 插件后重试：https://docs.docker.com/engine/install/" ;;
     Darwin) die "macOS 请安装 Docker Desktop：https://www.docker.com/products/docker-desktop/" ;;
     *)      die "请自行安装 docker 后重试" ;;
   esac
@@ -45,10 +40,12 @@ install_docker(){
   else
     info "沿用已存在的 .env"
   fi
-  info "拉取镜像并启动…"
-  docker compose pull || true
-  docker compose up -d
-  ok "启动完成 → http://localhost:8787"
+  # 容器以当前用户 UID 运行，绑定挂载的 data/、skills/ 才能在容器内写入、在宿主机仍归你所有。
+  grep -q '^ARTEX_UID=' .env || printf '\nARTEX_UID=%s\n' "$(id -u)" >> .env
+  mkdir -p data
+  info "从源码构建镜像并启动（首次构建需要几分钟）…"
+  docker compose up -d --build
+  ok "启动完成 → http://localhost:8787（仅本机可访问）"
   info "查看日志：docker compose logs -f artex"
 }
 

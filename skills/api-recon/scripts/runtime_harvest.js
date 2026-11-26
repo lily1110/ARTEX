@@ -11,7 +11,7 @@
  *   2. interceptor gate-> rewrite the "unauthorized" code field to success
  *   3. content gate   -> stub the menu/permission endpoint with a full-feature payload
  *
- * Requires puppeteer-core + a system Chromium.  ( cd scripts && npm install )
+ * Requires puppeteer-core + a system Chromium.  ( cd scripts && npm ci --ignore-scripts )
  *
  * config.json schema (all fields optional except baseUrl):
  * {
@@ -38,7 +38,7 @@ const path = require('path');
 
 let puppeteer;
 try { puppeteer = require('puppeteer-core'); }
-catch (e) { console.error("[!] run `npm install` in the scripts/ dir first (needs puppeteer-core)"); process.exit(1); }
+catch (e) { console.error("[!] run `npm ci --ignore-scripts` in the scripts/ dir first (needs puppeteer-core)"); process.exit(1); }
 
 function loadCfg(p) {
   const c = JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -97,7 +97,7 @@ function neutralize(txt, n) {
   const launchArgs = ['--no-sandbox', '--disable-dev-shm-usage', '--ignore-certificate-errors'];
   if (cfg.proxy) launchArgs.push(`--proxy-server=${cfg.proxy}`);
   const browser = await puppeteer.launch({
-    executablePath: cfg.chromium, headless: cfg.headless ? 'new' : false,
+    executablePath: cfg.chromium, headless: !!cfg.headless,
     args: launchArgs
   });
   const page = await browser.newPage();
@@ -105,7 +105,7 @@ function neutralize(txt, n) {
   // ---- WebSocket frame capture via CDP (fetch/XHR interception can't see WS) ----
   if (cfg.recordWs) {
     try {
-      const cdp = await page.target().createCDPSession();
+      const cdp = await page.createCDPSession();
       await cdp.send('Network.enable');
       const wsUrl = {}; // requestId -> url
       cdp.on('Network.webSocketCreated', e => { wsUrl[e.requestId] = e.url; });

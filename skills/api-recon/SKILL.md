@@ -295,8 +295,10 @@ coverage 每轮导出：`__API_RECON_LOG__`、`__API_RECON_DETAIL__`、`__API_RE
 
 验证：`window.__API_RECON_PRELOAD__` 存在；业务 path 不回 `/login`。
 
+先把 `scripts/` 下的 `package.json`、`package-lock.json`、`.npmrc` 与 `runtime_harvest.js` 一起复制到 `recon/`（锁文件只允许 npm 官方源）。
+
 ```bash
-cd recon && npm install
+cd recon && npm ci --ignore-scripts   # 严格按 package-lock.json 安装，不执行依赖脚本
 node runtime_harvest.js config.json
 ```
 

@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+### 安全加固
+
+#### 变更
+
+- **Docker 改为从源码构建**：`Dockerfile` 改为多阶段构建（前端静态导出 → Go 编译内嵌前端 → 运行时），`docker-compose.yml` 用 `build:` 代替拉取 `autumn27/artex`，发布工作流不再推送 Docker Hub 镜像。起因是 2026-11 发现的 `tomicdd/artex` 预编译镜像后门（`verifyCaptcha`，源码中不存在）。基础镜像按 digest 固定，Node 从官方镜像拷贝（去掉 `curl nodesource | bash`），Playwright MCP / CLI / playwright 固定到同一版本。
+- **容器以非 root 运行**：默认 UID 10001（compose 可用 `ARTEX_UID` 改成宿主用户），只给 nmap 授 `cap_net_raw`；新增 HEALTHCHECK。
+- **在线更新编译期关闭**：`selfupdate.Enabled = false`，`FetchLatest` / `Stage` 在任何网络请求前返回 `ErrDisabled`，`/api/update/check` 报告已禁用、`/api/update/apply` 返回 403；更新源常量改为 `lily1110/ARTEX`。
+- **默认只监听本机**：`-addr` 默认值从 `:8787` 改为 `127.0.0.1:8787`；`dev.sh` 的前后端也只监听回环；compose 只发布到 `127.0.0.1`。
+- **安装脚本**：不再 `curl get.docker.com | sh`；Docker 安装 / 更新改为 `docker compose up -d --build`。
+- **基础镜像**：golang / node / python 改用 Debian 13 trixie 变体（bookworm 2026-06 起仅剩 LTS），全部按 digest 固定；运行时 `apt-get upgrade`，镜像自带 npm 升到 11.21.3、pip 升到 26.3。postgres 改为 `docker/postgres/Dockerfile`：固定 digest 的官方 `postgres:16-alpine` + `apk upgrade`。
+
+#### 修复的问题
+
+- **依赖漏洞**：Go 1.26.11，`golang.org/x/net` v0.62.0、`x/crypto` v0.59.0、`klauspost/compress` v1.20.2、`gorilla/websocket` 修复提交，`govulncheck` 无可达漏洞；Next.js 16.4.6、`shadcn` 移入 `devDependencies` 并 `npm audit fix`（0 个告警）；api-recon 的 `puppeteer-core` 升到 25.19.0，锁文件只解析到 npm 官方源，安装改为 `npm ci --ignore-scripts`。
+
 ## [0.3.15] - 2026-10-07
 
 ### 拦截
