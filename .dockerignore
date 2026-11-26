@@ -14,3 +14,11 @@ bench/.env
 bench/scheduler.py
 bench/entrypoint_v2.sh
 bench/seed_v2.sh
+dist
+.env
+.env.*
+!.env.example
+config.json
+jwt.key
+*.pem
+web/.env*

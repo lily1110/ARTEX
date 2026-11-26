@@ -3,6 +3,7 @@ package selfupdate
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,9 +12,21 @@ import (
 	"time"
 )
 
+// Enabled 决定本构建是否带在线更新。刻意做成编译期常量而不是配置项：没有任何
+// 配置、环境变量或管理员会话能把它打开，只能改源码重新编译。
+//
+// 关闭的原因：SHA256SUMS 与安装包出自同一个 Release，只能防传输被篡改，防不了
+// 发布源本身被攻破——2026-11 的 tomicdd/artex 镜像后门就是从发布物而非源码进来的。
+// 关闭后 FetchLatest / Stage 在发起任何网络请求前就返回 ErrDisabled；升级改为
+// 拉取源码、审阅差异、本地重新构建。
+const Enabled = false
+
+// ErrDisabled 是 Enabled 为 false 时所有在线更新入口返回的错误。
+var ErrDisabled = errors.New("在线更新已在本构建中禁用：请拉取源码审阅后重新构建")
+
 // Repo 是发布源。写死而不是做成配置项：更新源可配等于给任何能改配置的人一条
 // 远程代码执行通道，对一个渗透测试平台来说这个口子开不得。
-const Repo = "Hinln/ARTEX"
+const Repo = "lily1110/ARTEX"
 
 // GitHubTokenEnv 只由后端进程读取，不通过前端或配置 API 传递令牌。
 const GitHubTokenEnv = "ARTEX_UPDATE_GITHUB_TOKEN"
@@ -118,6 +131,14 @@ func checkURL(u *url.URL) error {
 
 // FetchLatest 查询最新正式版。
 func FetchLatest(ctx context.Context, c *http.Client) (*Release, error) {
+	if !Enabled {
+		return nil, ErrDisabled
+	}
+	return fetchLatest(ctx, c)
+}
+
+// fetchLatest 是不经 Enabled 闸门的实际查询，供 FetchLatest 与测试使用。
+func fetchLatest(ctx context.Context, c *http.Client) (*Release, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, latestURL, nil)
 	if err != nil {
 		return nil, err
